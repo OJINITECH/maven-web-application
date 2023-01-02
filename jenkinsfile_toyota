@@ -1,0 +1,41 @@
+node{
+  def mavenHome = tool name: 'maven3.6.8'
+  stage('1cloneCode'){
+    git "https://github.com/OJINITECH/maven-web-application.git"
+  //sh "https://github.com/OJINITECH/maven-web-application.git"
+  }
+  stage('2Test&Build'){
+    sh "${mavenHome}/bin/mvn clean package"
+    //bat "${mavenHome}/bin/mvn clean package"
+  }
+    stage('3codeQuality'){
+    sh "${mavenHome}/bin/mvn sonar:sonar"
+  }
+    stage('4uploadArtifacts'){
+    sh "${mavenHome}/bin/mvn deploy"
+    //http://172.31.64.250:8181/landmarktech/repository/tesla-webapp-snapshot/
+    //http://172.31.64.250:8181/landmarktech/repository/tesla-webapp-release/
+    // vi pom.xml and added repository details   
+    // vi setting.xml and add AUTHENTICATION details  
+  }
+   stage('5deploy2UAT'){
+    sh "echo 'deploy to UAT'  "
+    deploy adapters: [tomcat9(credentialsId: 'b1e79c00-1366-4a59-8254-3775fbfa02d6', path: '', url: 'http://184.73.14.65:8177/')], contextPath: null, war: 'target/*war'
+  }
+ stage('6approvalGate'){
+    sh "echo 'ready for review' "
+    timeout(time:5, unit:'DAYS') {
+    input message: 'Application ready for deployment, Please review and approve'
+      }
+  }
+  stage('7deploy2Prod'){
+    deploy adapters: [tomcat9(credentialsId: 'b1e79c00-1366-4a59-8254-3775fbfa02d6', path: '', url: 'http://184.73.14.65:8177/')], contextPath: null, war: 'target/*war'
+      }
+}
+stage('8emailNotification'){
+    emailext body: '''Hi all  
+
+build status
+
+ojinitech''', recipientProviders: [contributor(), developers(), upstreamDevelopers(), brokenTestsSuspects(), buildUser(), brokenBuildSuspects()], subject: 'build stauts', to: 'toyota-app@gmail.com'
+}
